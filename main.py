@@ -1,5 +1,6 @@
 import tkinter as tk
 import math
+import time
 
 root = tk.Tk()
 root.geometry('800x600')
@@ -7,39 +8,79 @@ canv = tk.Canvas(root)
 canv.pack(fill="both", expand=1)
 
 
-class Gun():
+class Gun:
     def __init__(self):
-        self.coordX = 40
-        self.coordY = 500
-        self.id = canv.create_line(self.coordX, self.coordY, 80, 500, width = 7)
+        self.id = canv.create_line(40, 500, 80, 500, width=7)  # Просто линия
+        self.tension_variable = 30  # Стартовая длина линии
+        self.push_on = False  # Маркер зажатой левой кнопки
+        self.mouse_x = root.winfo_pointerx() - root.winfo_rootx()  # Определяю координаты мыши относительно окна
+        self.mouse_y = root.winfo_pointery() - root.winfo_rooty()
 
-    def targetting(self, event):
-        """Прицеливание. Зависит от положения мыши."""
+    def get_mouse_coord(self, event=0):  # Обновляю координаты мыши при событии (движение мыши) и запускаю наведение.
+        if event:
+            self.mouse_x = root.winfo_pointerx() - root.winfo_rootx()
+            self.mouse_y = root.winfo_pointery() - root.winfo_rooty()
+            self.targeting()
+        else:
+            self.targeting()
 
-        # Шаг 1. Находим длину вектора (линия от x, y до курсора мыши).
-        mouseX = event.x
-        mouseY = event.y
-        dlina = math.sqrt((mouseX - self.coordX)**2 + (mouseY - self.coordY)**2)
-        # По формуле корень квадратный из суммы квадратов разностей координат
+    def push_start(self, event=0):
+        if event:
+            self.push_on = True
 
-        # Шаг 2. Привожу длину вектора к желаемой.
-        """ Нормализация вектора — это преобразование заданного вектора в вектор в том же направлении,
-        но с единичной длиной. Для нормализации вектора нужно каждую компоненту поделить на длину вектора. """
-        companente1 = (mouseX - self.coordX) / dlina
-        compenente2 = (mouseY - self.coordY) / dlina
-        # Получится нормализованный вектор длиной в единицу √companente1**2 + compenente2**2
+    def push_stop(self, event=0):
+        if event:
+            self.push_on = False
 
-        # Шаг 3. Рисую вектор новой длины (50)
-        newCoordX = self.coordX + (companente1 * 50)
-        newCoordY = self.coordY + (compenente2 * 50)
-        canv.coords(self.id, self.coordX, self.coordY, newCoordX, newCoordY)
+    def targeting(self):  # Наведение
+        # Шаг 1. Узнать расстояние между координатами начала линии и мыши.
+        """Расстояние между точками плоскости равно корню квадратному из
+        суммы квадратов разностей одноименных координат этих точек."""
 
-    def tension(self):  # tension - натяжение
-        all()
+        mouse_x = self.mouse_x
+        mouse_y = self.mouse_y
+        dlina = math.sqrt((mouse_x - 40)**2 + (mouse_y - 500)**2)
 
+        # Шаг 2. Нормальзовать полученный вектор.
+        """В первом шаге линия от точек 40, 500 (13 строка) до координат мыши. Нужно укоротить её до 
+        желаемой величины, НО! сохранить направление. Итак, нормализация вектора - получение из некоторого вектора n 
+        другого вектора с одинаковым направлением, но длинной, равной 1,0. Нормализованный вектор это исходный вектор, 
+        деленный на свою длину"""
 
+        delta_x = (mouse_x - 40) / dlina
+        delta_y = (mouse_y - 500) / dlina
+
+        """Получились координаты вектора длиной в 1,0, но с сохранением направления. Теперь умножим их на заданную 
+         длину линии (14 строка) и перенесём к началу линии (13 строка)"""
+
+        delta_x = delta_x * self.tension_variable + 40
+        delta_y = delta_y * self.tension_variable + 500
+
+        # Шаг 3. Отдаём координаты в функцию рисования.
+
+        self.draw_line(delta_x, delta_y)
+
+    def draw_line(self, delta_x, delta_y):
+        if self.push_on:
+            canv.itemconfig(self.id, fill='orange')
+            if self.tension_variable < 100:
+                self.tension_variable += 1
+                time.sleep(0.03)
+            canv.coords(self.id, 40, 500, delta_x, delta_y)
+        else:
+            canv.itemconfig(self.id, fill='black')
+            canv.coords(self.id, 40, 500, delta_x, delta_y)
 
 
 g1 = Gun()
-root.bind('<Motion>', g1.targetting)
-tk.mainloop()
+
+root.bind('<ButtonPress-1>', g1.push_start)
+root.bind('<ButtonRelease-1>', g1.push_stop)
+root.bind('<Motion>', g1.targeting)
+root.bind('<Motion>', g1.get_mouse_coord)
+
+
+
+while True:
+    g1.get_mouse_coord()
+    canv.update()
